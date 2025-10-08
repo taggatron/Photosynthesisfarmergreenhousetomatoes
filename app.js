@@ -69,8 +69,9 @@
       acc += computeWeeklyGrowthFor({ temperatureC, lightsCount, co2Fans, soil, weekIndex: w, cloudyReductions: reductions });
     }
     const base = 120;
-    const scale = 280;
-    const mass = base + scale * Math.pow(acc, 1.2) * (0.9 + Math.random() * 0.2);
+    const scale = 30;
+    const exp = 1.05;
+    const mass = base + scale * Math.pow(acc, exp) * (0.9 + Math.random() * 0.2);
     return Math.max(120, Math.min(2200, Math.round(mass)));
   }
 
@@ -253,8 +254,9 @@
           });
         }
         const base = 120;
-        const scale = 280;
-        const estMass = base + scale * Math.pow(s.accGrowth + projected, 1.2);
+        const scale = 30;
+        const exp = 1.05;
+        const estMass = base + scale * Math.pow(s.accGrowth + projected, exp);
         s.tomatoScaleTarget = tomatoScaleFromMass(Math.max(120, Math.min(2200, Math.round(estMass))));
       });
 
@@ -277,9 +279,10 @@
         state.forEach((s, i) => {
           setTimeout(() => {
             const base = 120;
-            const scale = 280;
+            const scale = 30;
+            const exp = 1.05;
             const noise = 0.9 + Math.random() * 0.2;
-            const mass = Math.max(120, Math.min(2200, Math.round(base + scale * Math.pow(s.accGrowth, 1.2) * noise)));
+            const mass = Math.max(120, Math.min(2200, Math.round(base + scale * Math.pow(s.accGrowth, exp) * noise)));
             s.massEl.textContent = formatMass(mass);
           }, i * 200);
         });
@@ -304,18 +307,50 @@
       }
     });
     card.addEventListener('click', (e) => {
-      const decBtn = e.target.closest('button[data-role="temp-dec"]');
-      const incBtn = e.target.closest('button[data-role="temp-inc"]');
-      if (decBtn || incBtn) {
+      // Temperature +/-
+      const tDec = e.target.closest('button[data-role="temp-dec"]');
+      const tInc = e.target.closest('button[data-role="temp-inc"]');
+      if (tDec || tInc) {
         const slider = card.querySelector('input[data-role="temperature"]');
-        if (!slider) return;
-        let val = parseInt(slider.value, 10);
-        const min = parseInt(slider.min, 10);
-        const max = parseInt(slider.max, 10);
-        val += incBtn ? 1 : -1;
-        val = Math.max(min, Math.min(max, val));
-        slider.value = String(val);
-        updateHardwareVisuals();
+        if (slider) {
+          let val = parseInt(slider.value, 10);
+          const min = parseInt(slider.min, 10);
+          const max = parseInt(slider.max, 10);
+          val += tInc ? 1 : -1;
+          val = Math.max(min, Math.min(max, val));
+          slider.value = String(val);
+          updateHardwareVisuals();
+        }
+      }
+      // Lights +/- (if present in DOM)
+      const lDec = e.target.closest('button[data-role="lights-dec"]');
+      const lInc = e.target.closest('button[data-role="lights-inc"]');
+      if (lDec || lInc) {
+        const slider = card.querySelector('input[data-role="lights"]');
+        if (slider) {
+          let val = parseInt(slider.value, 10);
+          const min = parseInt(slider.min, 10);
+          const max = parseInt(slider.max, 10);
+          val += lInc ? 1 : -1;
+          val = Math.max(min, Math.min(max, val));
+          slider.value = String(val);
+          updateHardwareVisuals();
+        }
+      }
+      // CO2 fans +/- (if present in DOM)
+      const cDec = e.target.closest('button[data-role="co2-dec"]');
+      const cInc = e.target.closest('button[data-role="co2-inc"]');
+      if (cDec || cInc) {
+        const slider = card.querySelector('input[data-role="co2fans"]');
+        if (slider) {
+          let val = parseInt(slider.value, 10);
+          const min = parseInt(slider.min, 10);
+          const max = parseInt(slider.max, 10);
+          val += cInc ? 1 : -1;
+          val = Math.max(min, Math.min(max, val));
+          slider.value = String(val);
+          updateHardwareVisuals();
+        }
       }
     });
   });
