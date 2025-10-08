@@ -165,7 +165,23 @@
     state.forEach((s, idx) => {
       if (s.stem) s.stem.setAttribute('transform', 'scale(1,0.1)');
       s.leaves.forEach(el => { el.setAttribute('opacity', '0'); el.setAttribute('transform', 'scale(0.8)'); });
-      s.tomatoes.forEach(el => { el.setAttribute('opacity', '0'); el.setAttribute('transform', 'scale(0.6)'); });
+      // Capture and persist base radii in data attributes so resets don't drift
+      if (!s.baseTomatoRadii || s.baseTomatoRadii.length !== s.tomatoes.length) {
+        s.baseTomatoRadii = s.tomatoes.map(el => {
+          const existing = parseFloat(el.getAttribute('data-base-r'));
+          const baseR = Number.isFinite(existing) ? existing : (parseFloat(el.getAttribute('r')) || 3.5);
+          // Persist on the element for future state re-inits
+          el.setAttribute('data-base-r', String(baseR));
+          return baseR;
+        });
+      }
+      s.tomatoes.forEach((el, i) => {
+        el.setAttribute('opacity', '0');
+        // Ensure no lingering transforms that could shift positions
+        el.removeAttribute('transform');
+        const baseR = s.baseTomatoRadii?.[i] ?? (parseFloat(el.getAttribute('data-base-r')) || 3.5);
+        el.setAttribute('r', String((baseR * 0.6).toFixed(2)));
+      });
       s.massEl.textContent = '—';
     });
     progressBar.style.width = '0%';
@@ -185,14 +201,20 @@
         el.setAttribute('opacity', String(t));
         el.setAttribute('transform', `scale(${(0.8 + 0.2 * t).toFixed(3)})`);
       });
-      // tomatoes appear late and scale towards target size
+      // tomatoes appear late and grow by changing radius only (position stays constant)
       s.tomatoes.forEach((el, i) => {
         const threshold = 0.65 + i * 0.1;
         const t = Math.max(0, Math.min(1, (progress01 - threshold) / 0.15));
         el.setAttribute('opacity', String(t));
+        // Growth over timeline from 0.6x -> 1.0x of base radius
         const baseScale = 0.6 + 0.4 * t;
+        // Size multiplier from estimated mass mapping
         const sizeMult = 1 + (s.tomatoScaleTarget - 1) * sEase;
-        el.setAttribute('transform', `scale(${(baseScale * sizeMult).toFixed(3)})`);
+        const baseR = s.baseTomatoRadii?.[i] ?? (parseFloat(el.getAttribute('data-base-r')) || 3.5);
+        // Ensure any old transforms do not affect position
+        el.removeAttribute('transform');
+        const newR = baseR * baseScale * sizeMult;
+        el.setAttribute('r', String(newR.toFixed(2)));
       });
     });
   }
