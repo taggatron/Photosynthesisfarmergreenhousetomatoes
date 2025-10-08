@@ -111,6 +111,7 @@
   function setInteractive(enabled) {
     ghCards.forEach(card => {
       card.querySelectorAll('input[type="range"]').forEach(i => i.disabled = !enabled);
+      card.querySelectorAll('button[data-role="temp-dec"], button[data-role="temp-inc"]').forEach(b => b.disabled = !enabled);
     });
     growBtn.disabled = !enabled;
     resetBtn.disabled = enabled;
@@ -289,6 +290,21 @@
   ghCards.forEach(card => {
     card.addEventListener('input', (e) => {
       if (e.target.matches('input[type="range"]')) {
+        updateHardwareVisuals();
+      }
+    });
+    card.addEventListener('click', (e) => {
+      const decBtn = e.target.closest('button[data-role="temp-dec"]');
+      const incBtn = e.target.closest('button[data-role="temp-inc"]');
+      if (decBtn || incBtn) {
+        const slider = card.querySelector('input[data-role="temperature"]');
+        if (!slider) return;
+        let val = parseInt(slider.value, 10);
+        const min = parseInt(slider.min, 10);
+        const max = parseInt(slider.max, 10);
+        val += incBtn ? 1 : -1;
+        val = Math.max(min, Math.min(max, val));
+        slider.value = String(val);
         updateHardwareVisuals();
       }
     });
