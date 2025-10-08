@@ -1,0 +1,155 @@
+:root {
+  --bg: #f7fafc;
+  --card: #ffffff;
+  --text: #1a202c;
+  --muted: #4a5568;
+  --primary: #2563eb;
+  --primary-ink: #fff;
+  --border: #e2e8f0;
+  --accent: #10b981;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  color: var(--text);
+  background: var(--bg);
+}
+
+.app-header {
+  padding: 1rem 1rem 0.5rem;
+  text-align: center;
+}
+
+.app-header h1 {
+  margin: 0.2rem 0;
+  font-weight: 800;
+}
+
+.subtitle {
+  margin: 0.2rem 0 1rem;
+  color: var(--muted);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem 4rem;
+}
+
+.controls {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.global-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+.btn.primary { background: var(--primary); color: var(--primary-ink); border-color: transparent; }
+
+.legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; transform: translateY(1px); }
+.legend .dot.heat { background: #ff7a59; }
+.legend .dot.light { background: #ffd166; }
+
+.progress-wrap {
+  position: relative;
+  height: 10px;
+  background: #edf2f7;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #4f46e5, #06b6d4); transition: width 0.2s ease; }
+.progress-label { text-align: right; font-size: 0.85rem; color: var(--muted); margin-top: 0.25rem; }
+
+.greenhouse-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.greenhouse-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  padding: 0.75rem;
+  display: grid;
+  grid-template-rows: auto auto auto auto;
+}
+.greenhouse-card header h2 { margin: 0.25rem 0 0.5rem; font-size: 1.05rem; }
+
+.svg-wrap { width: 100%; }
+.greenhouse { width: 100%; height: auto; display: block; }
+
+.gh-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.range { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.5rem; padding: 0.35rem 0.6rem; border: 1px solid var(--border); border-radius: 12px; }
+.range input[type="range"] { width: 100%; }
+.range .value { color: var(--muted); min-width: 3ch; text-align: right; }
+
+.results { margin-top: 0.3rem; color: var(--muted); }
+.metric { font-size: 0.95rem; }
+
+.gh-events {
+  margin-top: 0.25rem;
+  min-height: 1.25rem;
+  font-size: 0.9rem;
+  color: #1f2937;
+}
+.cloudy-badge { display: inline-flex; align-items: center; gap: 0.4rem; background: #e0f2fe; color: #075985; padding: 0.2rem 0.5rem; border-radius: 999px; border: 1px solid #bae6fd; }
+.cloudy-dot { width: 8px; height: 8px; border-radius: 50%; background: #60a5fa; box-shadow: 0 0 0 2px rgba(96,165,250,0.3); }
+
+/* Animations */
+.heater { opacity: 0.25; transition: opacity 0.2s ease, filter 0.2s ease; }
+.heater.on { opacity: 1; }
+
+.light { opacity: 0.25; transition: opacity 0.2s ease; }
+.light.on { opacity: 1; }
+
+.light.on .rays { animation: pulse 1.4s ease-in-out infinite; transform-origin: center; }
+@keyframes pulse { 0%,100% { opacity: 0.7; } 50% { opacity: 1; } }
+
+.plant .stem { transition: transform 0.6s ease; transform-origin: bottom center; }
+.plant .leaves ellipse, .plant .tomatoes circle { transition: opacity 0.6s ease, transform 0.6s ease; transform-origin: center; }
+
+.app-footer { text-align: center; color: var(--muted); padding: 2rem 1rem; }
+
+/* Mobile layout */
+@media (max-width: 920px) {
+  .greenhouse-grid { grid-template-columns: repeat(2, minmax(240px, 1fr)); }
+}
+@media (max-width: 620px) {
+  .greenhouse-grid { grid-template-columns: 1fr; }
+  .btn { width: 100%; }
+  .gh-controls { grid-template-columns: 1fr; }
+}
+
+/* Increase touch targets on iOS */
+input[type="range"] { touch-action: manipulation; }
