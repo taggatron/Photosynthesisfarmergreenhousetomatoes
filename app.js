@@ -109,10 +109,12 @@
   let startTs = 0;
 
   function setInteractive(enabled) {
+    // Keep controls enabled even while running so mid-run changes affect outcome
     ghCards.forEach(card => {
-      card.querySelectorAll('input[type="range"]').forEach(i => i.disabled = !enabled);
-      card.querySelectorAll('button[data-role="temp-dec"], button[data-role="temp-inc"]').forEach(b => b.disabled = !enabled);
+      card.querySelectorAll('input[type="range"]').forEach(i => i.disabled = false);
+      card.querySelectorAll('button[data-role="temp-dec"], button[data-role="temp-inc"], button[data-role="lights-dec"], button[data-role="lights-inc"], button[data-role="co2-dec"], button[data-role="co2-inc"]').forEach(b => b.disabled = false);
     });
+    // Only manage the main buttons
     growBtn.disabled = !enabled;
     resetBtn.disabled = enabled;
   }
