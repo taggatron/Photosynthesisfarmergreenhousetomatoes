@@ -72,6 +72,7 @@ html, body {
 .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; transform: translateY(1px); }
 .legend .dot.heat { background: #ff7a59; }
 .legend .dot.light { background: #ffd166; }
+.legend .dot.co2 { background: #34d399; }
 
 .progress-wrap {
   position: relative;
@@ -135,6 +136,12 @@ html, body {
 
 .light.on .rays { animation: pulse 1.4s ease-in-out infinite; transform-origin: center; }
 @keyframes pulse { 0%,100% { opacity: 0.7; } 50% { opacity: 1; } }
+
+/* CO2 fan animation */
+.co2fan { opacity: 0.25; transition: opacity 0.2s ease; }
+.co2fan.on { opacity: 1; }
+.co2fan.on .blades { animation: spin 1.2s linear infinite; transform-origin: center; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 .plant .stem { transition: transform 0.6s ease; transform-origin: bottom center; }
 .plant .leaves ellipse, .plant .tomatoes circle { transition: opacity 0.6s ease, transform 0.6s ease; transform-origin: center; }

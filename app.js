@@ -1,6 +1,6 @@
 // Greenhouse Growth Simulator
 // Contract
-// Inputs per greenhouse: temperature(10-30°C), lights count(0-3), intrinsic soil factor(randomized per run)
+// Inputs per greenhouse: temperature(10-30°C), lights count(0-3), CO2 fans(0-3), intrinsic soil factor(randomized per run)
 // Simulation: 6 months compressed into ~12 seconds; progress bar reflects months; weekly stochastic cloudy events
 // Output: estimated tomato mass (g) with animation of plant growth and fruit appearance
 
@@ -35,7 +35,7 @@
    * - Cloudy weeks: reduce light factor by 30–60% when active
    * Returns total mass in grams (bounded 120–2200g)
    */
-  function computeMassWeekly({ temperatureC, lightsCount, soil, months, cloudyWeeks }) {
+  function computeMassWeekly({ temperatureC, lightsCount, co2Fans, soil, months, cloudyWeeks }) {
     const weeks = months * 4; // coarse 4 weeks per month
     let acc = 0;
     for (let w = 0; w < weeks; w++) {
@@ -63,7 +63,12 @@
         lightFactor *= (1 - reduction);
       }
 
-      const weeklyGrowth = seasonal * tempFactor * lightFactor * soil;
+      // CO2 fans diminishing returns; saturate at 2
+      const c = Math.max(0, Math.min(3, co2Fans|0));
+      const co2Multipliers = [1.0, 1.15, 1.25, 1.25];
+      const co2Factor = co2Multipliers[c];
+
+      const weeklyGrowth = seasonal * tempFactor * lightFactor * co2Factor * soil;
       acc += weeklyGrowth;
     }
     // Scale accumulated growth to grams non-linearly
@@ -81,6 +86,7 @@
       card,
       tempInput: card.querySelector('input[data-role="temperature"]'),
       lightsInput: card.querySelector('input[data-role="lights"]'),
+  co2Input: card.querySelector('input[data-role="co2fans"]'),
       massEl: card.querySelector('.mass'),
       eventsEl: card.querySelector('.gh-events'),
       svg: card.querySelector('svg'),
@@ -90,6 +96,7 @@
       tomatoes: Array.from(card.querySelectorAll(`#plant${idx + 1} .tomatoes circle`)),
       heater: card.querySelector(`#heater${idx + 1}`),
       light: card.querySelector(`#light${idx + 1}`),
+  co2fan: card.querySelector(`#co2fan${idx + 1}`),
       soil: 0.85 + Math.random() * 0.3, // 0.85 - 1.15
       cloudyWeeks: [],
       tomatoScaleTarget: 1,
@@ -113,6 +120,7 @@
     state.forEach((s, idx) => {
       const temp = parseInt(s.tempInput.value, 10);
       const lightsCount = parseInt(s.lightsInput.value, 10);
+      const co2Count = parseInt(s.co2Input.value, 10);
       // Heater: turn on and glow strength based on temp above ambient 18
       const heaterOn = temp > 18;
       s.heater.classList.toggle('on', heaterOn);
@@ -139,6 +147,23 @@
       // Update labels next to sliders
       s.card.querySelector('.temp-val').textContent = `${temp}°C`;
       s.card.querySelector('.lights-val').textContent = `${lightsCount}`;
+      s.card.querySelector('.co2-val').textContent = `${co2Count}`;
+
+      // CO2 fans visuals: spin when any, duplicate icons when >1
+      const fanGroup = s.co2fan;
+      fanGroup.classList.toggle('on', co2Count > 0);
+      // remove extras
+      const baseCircle = fanGroup.querySelector('circle');
+      // Remove previous extra fans (group clones)
+      fanGroup.parentNode.querySelectorAll('.co2fan.extra').forEach(el => el.remove());
+      if (co2Count > 1) {
+        for (let i = 1; i < co2Count; i++) {
+          const clone = fanGroup.cloneNode(true);
+          clone.classList.add('extra');
+          clone.setAttribute('transform', `translate(${210 - i*16},140)`);
+          fanGroup.parentNode.appendChild(clone);
+        }
+      }
     });
   }
 
@@ -205,6 +230,7 @@
       const mass = computeMassWeekly({
         temperatureC: parseInt(s.tempInput.value, 10),
         lightsCount: parseInt(s.lightsInput.value, 10),
+        co2Fans: parseInt(s.co2Input.value, 10),
         soil: s.soil,
         months: MONTHS,
         cloudyWeeks: s.cloudyWeeks,
