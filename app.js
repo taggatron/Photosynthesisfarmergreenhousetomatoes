@@ -25,55 +25,51 @@
   // Smooth ease for animation
   function easeInOutQuad(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
 
+  const WEEKS_PER_MONTH = 4;
+  const TOTAL_WEEKS = MONTHS * WEEKS_PER_MONTH;
 
-  /**
-   * Weekly growth model
-   * - Temperature factor: peak near 24°C, triangular falloff to 0 at 10 and 35
-   * - Lights factor: diminishing returns 0..3 lamps → multiplier ~ 1 + 0.3, 0.55, 0.75
-   * - Soil factor: 0.85–1.15
-   * - Seasonal month modifier: small sine around 1.0
-   * - Cloudy weeks: reduce light factor by 30–60% when active
-   * Returns total mass in grams (bounded 120–2200g)
-   */
-  function computeMassWeekly({ temperatureC, lightsCount, co2Fans, soil, months, cloudyWeeks }) {
-    const weeks = months * 4; // coarse 4 weeks per month
-    let acc = 0;
-    for (let w = 0; w < weeks; w++) {
-      const monthIdx = Math.floor(w / 4);
-      const seasonal = 0.95 + 0.05 * Math.sin((monthIdx / 6) * Math.PI * 2);
+  // Helper: compute weekly growth for given inputs and week index
+  function computeWeeklyGrowthFor({ temperatureC, lightsCount, co2Fans, soil, weekIndex, cloudyReductions }) {
+    const monthIdx = Math.floor(weekIndex / WEEKS_PER_MONTH);
+    const seasonal = 0.95 + 0.05 * Math.sin((monthIdx / 6) * Math.PI * 2);
 
-      // Temperature factor: triangular around optimum 24°C
-      const t = temperatureC;
-      let tempFactor = 0;
-      if (t <= 10 || t >= 35) tempFactor = 0.05;
-      else if (t <= 24) tempFactor = 0.05 + (t - 10) / (24 - 10); // 0.05..1
-      else tempFactor = 1 - (t - 24) / (35 - 24); // 1..0
-      tempFactor = Math.max(0.05, Math.min(1, tempFactor));
+    // Temperature factor around 24°C
+    const t = temperatureC;
+    let tempFactor = 0;
+    if (t <= 10 || t >= 35) tempFactor = 0.05;
+    else if (t <= 24) tempFactor = 0.05 + (t - 10) / (24 - 10);
+    else tempFactor = 1 - (t - 24) / (35 - 24);
+    tempFactor = Math.max(0.05, Math.min(1, tempFactor));
 
-      // Lights diminishing returns
-  const l = Math.max(0, Math.min(3, lightsCount|0));
-  // Saturate benefit at 2 lights: 2 > 1, and 3 == 2
-  const lightMultipliers = [1.0, 1.3, 1.6, 1.6];
-      let lightFactor = lightMultipliers[l];
+    // Lights with saturation at 2
+    const l = Math.max(0, Math.min(3, lightsCount|0));
+    const lightMultipliers = [1.0, 1.3, 1.6, 1.6];
+    let lightFactor = lightMultipliers[l];
 
-      // Cloudy modifier if this week is cloudy
-      const cloudy = cloudyWeeks.includes(w);
-      if (cloudy) {
-        const reduction = 0.3 + Math.random() * 0.3; // 30–60%
-        lightFactor *= (1 - reduction);
-      }
+    // CO2 with saturation at 2
+    const c = Math.max(0, Math.min(3, co2Fans|0));
+    const co2Multipliers = [1.0, 1.15, 1.25, 1.25];
+    const co2Factor = co2Multipliers[c];
 
-      // CO2 fans diminishing returns; saturate at 2
-      const c = Math.max(0, Math.min(3, co2Fans|0));
-      const co2Multipliers = [1.0, 1.15, 1.25, 1.25];
-      const co2Factor = co2Multipliers[c];
-
-      const weeklyGrowth = seasonal * tempFactor * lightFactor * co2Factor * soil;
-      acc += weeklyGrowth;
+    // Cloudy reduction for this week if any
+    const reduction = cloudyReductions?.[weekIndex] || 0;
+    if (reduction > 0) {
+      lightFactor *= (1 - reduction);
     }
-    // Scale accumulated growth to grams non-linearly
-    const base = 120; // minimum harvest
-    const scale = 280; // impacts upper bound
+
+    return seasonal * tempFactor * lightFactor * co2Factor * soil;
+  }
+
+  // Optional older model kept for reference (not used in live run)
+  function computeMassWeekly({ temperatureC, lightsCount, co2Fans, soil, months, cloudyWeeks }) {
+    const weeks = months * WEEKS_PER_MONTH;
+    let acc = 0;
+    const reductions = Array.from({ length: weeks }, (_, w) => (cloudyWeeks.includes(w) ? (0.3 + Math.random() * 0.3) : 0));
+    for (let w = 0; w < weeks; w++) {
+      acc += computeWeeklyGrowthFor({ temperatureC, lightsCount, co2Fans, soil, weekIndex: w, cloudyReductions: reductions });
+    }
+    const base = 120;
+    const scale = 280;
     const mass = base + scale * Math.pow(acc, 1.2) * (0.9 + Math.random() * 0.2);
     return Math.max(120, Math.min(2200, Math.round(mass)));
   }
@@ -86,7 +82,7 @@
       card,
       tempInput: card.querySelector('input[data-role="temperature"]'),
       lightsInput: card.querySelector('input[data-role="lights"]'),
-  co2Input: card.querySelector('input[data-role="co2fans"]'),
+      co2Input: card.querySelector('input[data-role="co2fans"]'),
       massEl: card.querySelector('.mass'),
       eventsEl: card.querySelector('.gh-events'),
       svg: card.querySelector('svg'),
@@ -96,9 +92,12 @@
       tomatoes: Array.from(card.querySelectorAll(`#plant${idx + 1} .tomatoes circle`)),
       heater: card.querySelector(`#heater${idx + 1}`),
       light: card.querySelector(`#light${idx + 1}`),
-  co2fan: card.querySelector(`#co2fan${idx + 1}`),
+      co2fan: card.querySelector(`#co2fan${idx + 1}`),
       soil: 0.85 + Math.random() * 0.3, // 0.85 - 1.15
       cloudyWeeks: [],
+      cloudyReductions: [],
+      accGrowth: 0,
+      lastWeekComputed: -1,
       tomatoScaleTarget: 1,
     }));
   }
@@ -120,58 +119,40 @@
   function updateHardwareVisuals() {
     state.forEach((s, idx) => {
       const temp = parseInt(s.tempInput.value, 10);
-      const lightsCount = parseInt(s.lightsInput.value, 10);
-      const co2Count = parseInt(s.co2Input.value, 10);
+  const lightsCount = parseInt(s.lightsInput.value, 10);
+  const co2Count = s.co2Input ? parseInt(s.co2Input.value, 10) : 0;
       // Heater: turn on and glow strength based on temp above ambient 18
       const heaterOn = temp > 18;
-      s.heater.classList.toggle('on', heaterOn);
-      const glowStrength = Math.min(1, Math.max(0, (temp - 18) / 12));
-      s.heater.style.filter = `drop-shadow(0 0 ${6 + 10 * glowStrength}px rgba(255,120,80,${0.2 + 0.6 * glowStrength}))`;
+      if (s.heater) {
+        s.heater.classList.toggle('on', heaterOn);
+        const glowStrength = Math.min(1, Math.max(0, (temp - 18) / 12));
+        s.heater.style.filter = `drop-shadow(0 0 ${6 + 10 * glowStrength}px rgba(255,120,80,${0.2 + 0.6 * glowStrength}))`;
+      }
 
       // Light: on if any lights; adjust rays opacity pulse via class
       const lightOn = lightsCount > 0;
-      s.light.classList.toggle('on', lightOn);
-
-      // Duplicate bulb visuals to represent multiple lights
-      const bulb = s.light.querySelector('circle');
-      const group = s.light;
-      // Remove any existing extra bulbs
-      group.querySelectorAll('circle.extra-bulb').forEach(el => el.remove());
-      if (lightOn) {
-        for (let i = 1; i < lightsCount; i++) {
-          const c = bulb.cloneNode(true);
-          c.classList.add('extra-bulb');
-          c.setAttribute('cx', String(i * 12));
-          group.appendChild(c);
-        }
+      if (s.light) {
+        s.light.classList.toggle('on', lightOn);
       }
-      // Update labels next to sliders
-      s.card.querySelector('.temp-val').textContent = `${temp}°C`;
-      s.card.querySelector('.lights-val').textContent = `${lightsCount}`;
-      s.card.querySelector('.co2-val').textContent = `${co2Count}`;
 
-      // CO2 fans visuals: spin when any, duplicate icons when >1
-      const fanGroup = s.co2fan;
-      if (fanGroup) {
-        fanGroup.classList.toggle('on', co2Count > 0);
-        // Remove previous extra fans (group clones) within same SVG
-        const svgRoot = fanGroup.ownerSVGElement || fanGroup.parentNode;
-        svgRoot.querySelectorAll('.co2fan.extra').forEach(el => el.remove());
-        if (co2Count > 1) {
-          for (let i = 1; i < co2Count; i++) {
-            const clone = fanGroup.cloneNode(true);
-            clone.classList.add('extra');
-            clone.setAttribute('transform', `translate(${210 - i*16},140)`);
-            svgRoot.appendChild(clone);
-          }
-        }
+      // CO2 fans: on if any
+      const fansOn = co2Count > 0;
+      if (s.co2fan) {
+        s.co2fan.classList.toggle('on', fansOn);
       }
+
+      // Live labels (if present)
+      const tempLabel = s.card.querySelector('.temp-val');
+      if (tempLabel) tempLabel.textContent = `${temp}°C`;
+      const lightsLabel = s.card.querySelector('.lights-val');
+      if (lightsLabel) lightsLabel.textContent = String(lightsCount);
+      const co2Label = s.card.querySelector('.co2-val');
+      if (co2Label) co2Label.textContent = String(co2Count);
     });
   }
 
   function resetPlants() {
     state.forEach((s, idx) => {
-      // reset graphics
       if (s.stem) s.stem.setAttribute('transform', 'scale(1,0.1)');
       s.leaves.forEach(el => { el.setAttribute('opacity', '0'); el.setAttribute('transform', 'scale(0.8)'); });
       s.tomatoes.forEach(el => { el.setAttribute('opacity', '0'); el.setAttribute('transform', 'scale(0.6)'); });
@@ -185,22 +166,22 @@
     // plant height 10% -> 100%
     const stemScaleY = 0.1 + 0.9 * progress01;
     const sEase = easeInOutQuad(progress01);
-    state.forEach(s => {
+    state.forEach((s) => {
       if (s.stem) s.stem.setAttribute('transform', `scale(1,${stemScaleY.toFixed(3)})`);
-      // stagger leaves appearance
+      // leaves ease in from 0.3..0.8 of timeline
       s.leaves.forEach((el, i) => {
-        const threshold = 0.25 + i * 0.2;
+        const threshold = 0.3 + i * 0.1;
         const t = Math.max(0, Math.min(1, (progress01 - threshold) / 0.2));
         el.setAttribute('opacity', String(t));
-        el.setAttribute('transform', `scale(${0.8 + 0.2 * t})`);
+        el.setAttribute('transform', `scale(${(0.8 + 0.2 * t).toFixed(3)})`);
       });
-      // tomatoes appear late
+      // tomatoes appear late and scale towards target size
       s.tomatoes.forEach((el, i) => {
         const threshold = 0.65 + i * 0.1;
         const t = Math.max(0, Math.min(1, (progress01 - threshold) / 0.15));
         el.setAttribute('opacity', String(t));
-        const baseScale = 0.6 + 0.4 * t; // original size ramp-in
-        const sizeMult = 1 + (s.tomatoScaleTarget - 1) * sEase; // ramp towards final size target
+        const baseScale = 0.6 + 0.4 * t;
+        const sizeMult = 1 + (s.tomatoScaleTarget - 1) * sEase;
         el.setAttribute('transform', `scale(${(baseScale * sizeMult).toFixed(3)})`);
       });
     });
@@ -216,7 +197,7 @@
     // Generate stochastic cloudy weeks per greenhouse
     // 1-3 cloudy stretches, length 1-2 weeks each
     state.forEach(s => {
-      const weeks = MONTHS * 4;
+      const weeks = TOTAL_WEEKS;
       const cloudy = new Set();
       const stretches = 1 + Math.floor(Math.random() * 3);
       for (let k = 0; k < stretches; k++) {
@@ -225,25 +206,11 @@
         for (let j = 0; j < len; j++) cloudy.add(Math.min(weeks - 1, start + j));
       }
       s.cloudyWeeks = Array.from(cloudy).sort((a,b)=>a-b);
-    });
-
-    // Precompute final masses
-    const results = state.map(s => {
-      const mass = computeMassWeekly({
-        temperatureC: parseInt(s.tempInput.value, 10),
-        lightsCount: parseInt(s.lightsInput.value, 10),
-        co2Fans: parseInt(s.co2Input.value, 10),
-        soil: s.soil,
-        months: MONTHS,
-        cloudyWeeks: s.cloudyWeeks,
-      });
-      return { id: s.id, mass };
-    });
-
-    // Set per-greenhouse tomato size targets from mass
-    results.forEach(r => {
-      const s = state.find(x => x.id === r.id);
-      s.tomatoScaleTarget = tomatoScaleFromMass(r.mass);
+      // Precompute reductions per week for consistency across projections
+      s.cloudyReductions = Array.from({ length: weeks }, (_, w) => (cloudy.has(w) ? (0.3 + Math.random() * 0.3) : 0));
+      // Reset accumulators
+      s.accGrowth = 0;
+      s.lastWeekComputed = -1;
     });
 
     timer = setInterval(() => {
@@ -253,9 +220,48 @@
       progressBar.style.width = `${Math.floor(p * 100)}%`;
       const month = Math.floor(p * MONTHS);
       progressLabel.textContent = p < 1 ? `Growing… Month ${month + 1} of ${MONTHS}` : 'Harvest ready';
+      // Determine current week index
+      const currentWeek = Math.min(TOTAL_WEEKS - 1, Math.floor(p * TOTAL_WEEKS));
+
+      // Integrate weekly growth so mid-run changes affect outcome
+      state.forEach(s => {
+        const temp = parseInt(s.tempInput.value, 10);
+        const lights = parseInt(s.lightsInput.value, 10);
+        const co2 = s.co2Input ? parseInt(s.co2Input.value, 10) : 0;
+        for (let w = s.lastWeekComputed + 1; w <= currentWeek; w++) {
+          const wg = computeWeeklyGrowthFor({
+            temperatureC: temp,
+            lightsCount: lights,
+            co2Fans: co2,
+            soil: s.soil,
+            weekIndex: w,
+            cloudyReductions: s.cloudyReductions,
+          });
+          s.accGrowth += wg;
+          s.lastWeekComputed = w;
+        }
+        // Project remaining weeks for live tomato sizing
+        let projected = 0;
+        for (let w = currentWeek + 1; w < TOTAL_WEEKS; w++) {
+          projected += computeWeeklyGrowthFor({
+            temperatureC: temp,
+            lightsCount: lights,
+            co2Fans: co2,
+            soil: s.soil,
+            weekIndex: w,
+            cloudyReductions: s.cloudyReductions,
+          });
+        }
+        const base = 120;
+        const scale = 280;
+        const estMass = base + scale * Math.pow(s.accGrowth + projected, 1.2);
+        s.tomatoScaleTarget = tomatoScaleFromMass(Math.max(120, Math.min(2200, Math.round(estMass))));
+      });
+
+      // Animate visuals for this step
       animateStep(p);
+
       // Update cloudy badges according to current week index
-      const currentWeek = Math.min(MONTHS * 4 - 1, Math.floor(p * MONTHS * 4));
       state.forEach(s => {
         const isCloudy = s.cloudyWeeks.includes(currentWeek);
         if (isCloudy) {
@@ -267,11 +273,14 @@
       if (p >= 1) {
         clearInterval(timer);
         running = false;
-        // reveal masses with small stagger
-        results.forEach((r, i) => {
+        // reveal masses with small stagger based on accumulated growth
+        state.forEach((s, i) => {
           setTimeout(() => {
-            const s = state.find(x => x.id === r.id);
-            s.massEl.textContent = formatMass(r.mass);
+            const base = 120;
+            const scale = 280;
+            const noise = 0.9 + Math.random() * 0.2;
+            const mass = Math.max(120, Math.min(2200, Math.round(base + scale * Math.pow(s.accGrowth, 1.2) * noise)));
+            s.massEl.textContent = formatMass(mass);
           }, i * 200);
         });
       }
