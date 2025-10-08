@@ -106,26 +106,21 @@ html, body {
 
 .gh-controls {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
   margin-top: 0.25rem;
 }
+.gh-controls.gh-grid { grid-template-columns: 1fr; }
 
-.range { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.5rem; padding: 0.35rem 0.6rem; border: 1px solid var(--border); border-radius: 12px; }
-.range input[type="range"] { width: 100%; }
+.range { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.6rem; padding: 0.5rem 0.7rem; border: 1px solid var(--border); border-radius: 12px; }
 .range .value { color: var(--muted); min-width: 3ch; text-align: right; }
 
-/* Larger, friendlier temperature slider */
-.slider-wrap { position: relative; display: block; width: 100%; }
-.slider-wrap input[type="range"] { height: 28px; }
-.slider-wrap input[type="range"]::-webkit-slider-runnable-track { height: 10px; background: #e5e7eb; border-radius: 999px; }
-.slider-wrap input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; margin-top: -7px; background: var(--primary); border-radius: 50%; border: 3px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-.slider-wrap input[type="range"]::-moz-range-track { height: 10px; background: #e5e7eb; border-radius: 999px; }
-.slider-wrap input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; background: var(--primary); border-radius: 50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-.opt-marker { position: absolute; top: 50%; left: calc((24 - 10) / (30 - 10) * 100%); transform: translate(-50%, -50%); width: 2px; height: 18px; background: #10b981; border-radius: 1px; box-shadow: 0 0 0 2px rgba(16,185,129,0.2); }
+/* remove slider visuals */
+.slider-wrap, .opt-marker { display: none; }
 
 .temp-controls { display: inline-flex; align-items: center; gap: 0.4rem; }
 .btn.small { padding: 0.3rem 0.5rem; border-radius: 8px; font-size: 0.9rem; line-height: 1; }
+.opt-note { color: var(--muted); font-size: 0.85rem; margin-left: 0.5rem; }
 
 .results { margin-top: 0.3rem; color: var(--muted); }
 .metric { font-size: 0.95rem; }
@@ -171,4 +166,4 @@ html, body {
 }
 
 /* Increase touch targets on iOS */
-input[type="range"] { touch-action: manipulation; }
+/* removed range input touch hints */

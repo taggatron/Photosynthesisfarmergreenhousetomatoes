@@ -28,6 +28,13 @@
   const WEEKS_PER_MONTH = 4;
   const TOTAL_WEEKS = MONTHS * WEEKS_PER_MONTH;
 
+  // Helper to parse numbers from label text like "18°C"
+  const numFromText = (txt, fallback=0) => {
+    if (!txt) return fallback;
+    const m = String(txt).match(/-?\d+/);
+    return m ? parseInt(m[0], 10) : fallback;
+  };
+
   // Helper: compute weekly growth for given inputs and week index
   function computeWeeklyGrowthFor({ temperatureC, lightsCount, co2Fans, soil, weekIndex, cloudyReductions }) {
     const monthIdx = Math.floor(weekIndex / WEEKS_PER_MONTH);
@@ -81,9 +88,10 @@
     return ghCards.map((card, idx) => ({
       id: card.dataset.gh,
       card,
-      tempInput: card.querySelector('input[data-role="temperature"]'),
-      lightsInput: card.querySelector('input[data-role="lights"]'),
-      co2Input: card.querySelector('input[data-role="co2fans"]'),
+      // values now come from labels (no sliders)
+      tempC: numFromText(card.querySelector('.temp-val')?.textContent, 18),
+      lightsCount: numFromText(card.querySelector('.lights-val')?.textContent, 0),
+      co2Count: numFromText(card.querySelector('.co2-val')?.textContent, 0),
       massEl: card.querySelector('.mass'),
       eventsEl: card.querySelector('.gh-events'),
       svg: card.querySelector('svg'),
@@ -109,9 +117,8 @@
   let startTs = 0;
 
   function setInteractive(enabled) {
-    // Keep controls enabled even while running so mid-run changes affect outcome
+    // Keep +/- controls enabled even while running so mid-run changes affect outcome
     ghCards.forEach(card => {
-      card.querySelectorAll('input[type="range"]').forEach(i => i.disabled = false);
       card.querySelectorAll('button[data-role="temp-dec"], button[data-role="temp-inc"], button[data-role="lights-dec"], button[data-role="lights-inc"], button[data-role="co2-dec"], button[data-role="co2-inc"]').forEach(b => b.disabled = false);
     });
     // Only manage the main buttons
@@ -121,9 +128,9 @@
 
   function updateHardwareVisuals() {
     state.forEach((s, idx) => {
-      const temp = parseInt(s.tempInput.value, 10);
-  const lightsCount = parseInt(s.lightsInput.value, 10);
-  const co2Count = s.co2Input ? parseInt(s.co2Input.value, 10) : 0;
+      const temp = s.tempC;
+      const lightsCount = s.lightsCount;
+      const co2Count = s.co2Count;
       // Heater: turn on and glow strength based on temp above ambient 18
       const heaterOn = temp > 18;
       if (s.heater) {
@@ -228,9 +235,9 @@
 
       // Integrate weekly growth so mid-run changes affect outcome
       state.forEach(s => {
-        const temp = parseInt(s.tempInput.value, 10);
-        const lights = parseInt(s.lightsInput.value, 10);
-        const co2 = s.co2Input ? parseInt(s.co2Input.value, 10) : 0;
+        const temp = s.tempC;
+        const lights = s.lightsCount;
+        const co2 = s.co2Count;
         for (let w = s.lastWeekComputed + 1; w <= currentWeek; w++) {
           const wg = computeWeeklyGrowthFor({
             temperatureC: temp,
@@ -303,24 +310,14 @@
 
   // Wire events
   ghCards.forEach(card => {
-    card.addEventListener('input', (e) => {
-      if (e.target.matches('input[type="range"]')) {
-        updateHardwareVisuals();
-      }
-    });
     card.addEventListener('click', (e) => {
       // Temperature +/-
       const tDec = e.target.closest('button[data-role="temp-dec"]');
       const tInc = e.target.closest('button[data-role="temp-inc"]');
       if (tDec || tInc) {
-        const slider = card.querySelector('input[data-role="temperature"]');
-        if (slider) {
-          let val = parseInt(slider.value, 10);
-          const min = parseInt(slider.min, 10);
-          const max = parseInt(slider.max, 10);
-          val += tInc ? 1 : -1;
-          val = Math.max(min, Math.min(max, val));
-          slider.value = String(val);
+        const s = state.find(x => x.card === card);
+        if (s) {
+          s.tempC = Math.max(10, Math.min(30, s.tempC + (tInc ? 1 : -1)));
           updateHardwareVisuals();
         }
       }
@@ -328,14 +325,9 @@
       const lDec = e.target.closest('button[data-role="lights-dec"]');
       const lInc = e.target.closest('button[data-role="lights-inc"]');
       if (lDec || lInc) {
-        const slider = card.querySelector('input[data-role="lights"]');
-        if (slider) {
-          let val = parseInt(slider.value, 10);
-          const min = parseInt(slider.min, 10);
-          const max = parseInt(slider.max, 10);
-          val += lInc ? 1 : -1;
-          val = Math.max(min, Math.min(max, val));
-          slider.value = String(val);
+        const s = state.find(x => x.card === card);
+        if (s) {
+          s.lightsCount = Math.max(0, Math.min(3, s.lightsCount + (lInc ? 1 : -1)));
           updateHardwareVisuals();
         }
       }
@@ -343,14 +335,9 @@
       const cDec = e.target.closest('button[data-role="co2-dec"]');
       const cInc = e.target.closest('button[data-role="co2-inc"]');
       if (cDec || cInc) {
-        const slider = card.querySelector('input[data-role="co2fans"]');
-        if (slider) {
-          let val = parseInt(slider.value, 10);
-          const min = parseInt(slider.min, 10);
-          const max = parseInt(slider.max, 10);
-          val += cInc ? 1 : -1;
-          val = Math.max(min, Math.min(max, val));
-          slider.value = String(val);
+        const s = state.find(x => x.card === card);
+        if (s) {
+          s.co2Count = Math.max(0, Math.min(3, s.co2Count + (cInc ? 1 : -1)));
           updateHardwareVisuals();
         }
       }
