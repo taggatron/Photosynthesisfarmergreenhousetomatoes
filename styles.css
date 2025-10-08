@@ -120,7 +120,7 @@ html, body {
 
 .temp-controls { display: inline-flex; align-items: center; gap: 0.4rem; }
 .btn.small { padding: 0.3rem 0.5rem; border-radius: 8px; font-size: 0.9rem; line-height: 1; }
-.opt-note { color: var(--muted); font-size: 0.85rem; margin-left: 0.5rem; }
+/* removed opt-note hint */
 
 .results { margin-top: 0.3rem; color: var(--muted); }
 .metric { font-size: 0.95rem; }
