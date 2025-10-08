@@ -152,17 +152,18 @@
 
       // CO2 fans visuals: spin when any, duplicate icons when >1
       const fanGroup = s.co2fan;
-      fanGroup.classList.toggle('on', co2Count > 0);
-      // remove extras
-      const baseCircle = fanGroup.querySelector('circle');
-      // Remove previous extra fans (group clones)
-      fanGroup.parentNode.querySelectorAll('.co2fan.extra').forEach(el => el.remove());
-      if (co2Count > 1) {
-        for (let i = 1; i < co2Count; i++) {
-          const clone = fanGroup.cloneNode(true);
-          clone.classList.add('extra');
-          clone.setAttribute('transform', `translate(${210 - i*16},140)`);
-          fanGroup.parentNode.appendChild(clone);
+      if (fanGroup) {
+        fanGroup.classList.toggle('on', co2Count > 0);
+        // Remove previous extra fans (group clones) within same SVG
+        const svgRoot = fanGroup.ownerSVGElement || fanGroup.parentNode;
+        svgRoot.querySelectorAll('.co2fan.extra').forEach(el => el.remove());
+        if (co2Count > 1) {
+          for (let i = 1; i < co2Count; i++) {
+            const clone = fanGroup.cloneNode(true);
+            clone.classList.add('extra');
+            clone.setAttribute('transform', `translate(${210 - i*16},140)`);
+            svgRoot.appendChild(clone);
+          }
         }
       }
     });
